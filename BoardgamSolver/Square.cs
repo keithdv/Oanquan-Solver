@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
-namespace Boardgame.Lib
+namespace BoardgamSolver
 {
 
 
@@ -16,20 +18,20 @@ namespace Boardgame.Lib
             IsTrail = false;
             IsMatched = false;
             IsNew = false;
-            IsEmpty = false;
+            IsEmpty = value == 0;
         }
 
         public Square(Square old)
         {
             Number = old.Number;
-            IsTrail = false;
+            IsTrail = old.IsTrail;
             IsMatched = old.IsMatched;
             IsNew = false;
             IsEmpty = old.IsEmpty;
         }
 
         public byte Number { get; }
-        public bool IsEmpty { get; private set; }
+        public bool IsEmpty { get; set; }
 
         public bool IsTrail { get; private set; }
 
@@ -51,7 +53,7 @@ namespace Boardgame.Lib
 
         public static Square BlockSquare()
         {
-            return new Square(0); // IsEmpty = false;
+            return new Square(0) { IsEmpty = false };
         }
 
         public Square Move()
@@ -87,14 +89,14 @@ namespace Boardgame.Lib
     public class Board
     {
 
-        private Board()
+        public Board(Square[,] squares)
         {
-            Squares = new Square[6, 6];
+            Squares = squares;
         }
 
         public static Board NewBoard()
         {
-            var board = new Board();
+            var board = new Board(new Square[6, 6]);
 
             for (var x = 0; x < 6; x++)
             {
@@ -261,6 +263,26 @@ namespace Boardgame.Lib
             }
         }
 
+        public int MatchedSum
+        {
+            get
+            {
+                int c = 0;
+                for (byte y = 0; y < 6; y++)
+                {
+                    for (byte x = 0; x < 6; x++)
+                    {
+                        var s = Squares[x, y];
+                        if (s.IsMatched)
+                        {
+                            c += s.Number;
+                        }
+                    }
+                }
+                return c;
+            }
+        }
+
         public int CenterSum
         {
             get
@@ -311,7 +333,7 @@ namespace Boardgame.Lib
                     for (byte x = 1; x < 5; x++)
                     {
                         var s = Squares[x, y];
-                        if (!s.IsEmpty && !s.IsMatched && s.Number != 0 && s.Number != 1)
+                        if (!s.IsEmpty && !s.IsMatched && s.Number != 0)
                         {
                             c += 1;
                         }
@@ -323,7 +345,7 @@ namespace Boardgame.Lib
 
         public Board Copy(bool includeMatched = true)
         {
-            var newBoard = new Board();
+            var newBoard = new Board(new Square[6, 6]);
 
             for (int x = 0; x < 6; x++)
             {
@@ -402,49 +424,113 @@ namespace Boardgame.Lib
 
         }
 
-    }
-
-    public class Turn
-    {
-
-        public Turn(Turn parentTurn, Board board)
-        {
-            Points = (parentTurn?.Points ?? 0) + board.Points;
-            Board = board;
-
-            Depth = (parentTurn?.Depth ?? 0) + 1;
-            ParentTurn = parentTurn;
-            ID = ID_Increment++;
-        }
-
-        private static long ID_Increment = 1;
-        public long ID { get; }
-
-        public IEnumerable<Move> Moves()
+        public void CheckForMatches()
         {
 
-            // Find all possible moves
-            var moves = new List<Move>();
+            // Find all tokens that can disappear
+            var newMatch = true;
 
-            for (byte x = 0; x < 6; x++)
+            while (newMatch)
             {
-                for (byte y = 0; y < 6; y++)
+                newMatch = false;
+                for (byte x = 0; x < 6; x++)
                 {
-                    if (!Board[x, y].IsEmpty)
+                    for (byte y = 0; y < 6; y++)
                     {
-                        Move(Board, x, y, moves);
+                        var curSquare = Squares[x, y];
+                        if (!curSquare.IsEmpty && !curSquare.IsMatched)
+                        {
+                            // Up, Left, Right, Down
+
+                            // Up
+                            if (y > 0 && (Squares[x, y - 1].IsTrail || Squares[x, y - 1].IsMatched) && Squares[x, y - 1].Number == curSquare.Number)
+                            {
+                                Squares[x, y] = Square.MatchToken(curSquare);
+                                newMatch = true;
+                            }
+
+                            // Left
+                            if (x > 0 && (Squares[x - 1, y].IsTrail || Squares[x - 1, y].IsMatched) && Squares[x - 1, y].Number == curSquare.Number)
+                            {
+                                Squares[x, y] = Square.MatchToken(curSquare);
+                                newMatch = true;
+                            }
+
+                            // Down
+                            if (y < 5 && (Squares[x, y + 1].IsTrail || Squares[x, y + 1].IsMatched) && Squares[x, y + 1].Number == curSquare.Number)
+                            {
+                                Squares[x, y] = Square.MatchToken(curSquare);
+                                newMatch = true;
+                            }
+
+                            // Right
+                            if (x < 5 && (Squares[x + 1, y].IsTrail || Squares[x + 1, y].IsMatched) && Squares[x + 1, y].Number == curSquare.Number)
+                            {
+                                Squares[x, y] = Square.MatchToken(curSquare);
+                                newMatch = true;
+                            }
+
+                        }
                     }
                 }
             }
 
-            moves.ForEach(m => m.CheckForMatches());
-
-            // At least two tokens consumed
-            return moves.Where(m => m.HasMatch);
-
         }
 
-        public void Move(Board board, int x, int y, List<Move> moves)
+    }
+
+    public static class Turn
+    {
+
+        public static IEnumerable<Move> Moves(Board board, Square[] blockSquares, List<(int, int)> futureSpots)
+        {
+
+            ConcurrentBag<List<Move>> allMoves = new ConcurrentBag<List<Move>>();
+
+            Parallel.For(0, 36, i =>
+            {
+
+                // Find all possible moves
+                var moves = new List<Move>();
+
+                int x = i % 6;
+                int y = i / 6;
+
+                if (!board[x, y].IsEmpty)
+                {
+                    Move(board, x, y, null, moves);
+                }
+
+                Parallel.ForEach(moves, m =>
+                {
+                    var secondMoves = new List<Move>();
+                    m.Board.CheckForMatches();
+                    var b = m.Board.Copy(false).FillRandomSpots(blockSquares, futureSpots);
+                    Moves(b, m, secondMoves);
+                    secondMoves.ForEach(m => m.Board.CheckForMatches());
+                    allMoves.Add(secondMoves);
+                });
+
+            });
+
+            return allMoves.SelectMany(x => x);
+        }
+
+        public static void Moves(Board board, Move parentMove, List<Move> moves)
+        {
+            for (int y = 0; y < 6; y += 1)
+            {
+                for (int x = 0; x < 6; x += 1)
+                {
+                    if (!board[x, y].IsEmpty)
+                    {
+                        Move(board, x, y, parentMove, moves);
+                    }
+                }
+            }
+        }
+
+        public static void Move(Board board, int x, int y, Move parentMove, List<Move> moves)
         {
 
             var square = board[x, y];
@@ -459,8 +545,8 @@ namespace Boardgame.Lib
                     var b = board.Copy();
                     b[x, y] = Square.TrailToken();
                     b[x, y - 1] = board[x, y].Move();
-                    moves.Add(new Move(this, b));
-                    Move(b, x, y - 1, moves);
+                    moves.Add(new Move(parentMove, b));
+                    Move(b, x, y - 1, parentMove, moves);
                 }
 
                 // Left
@@ -469,8 +555,8 @@ namespace Boardgame.Lib
                     var b = board.Copy();
                     b[x, y] = Square.TrailToken();
                     b[x - 1, y] = board[x, y].Move();
-                    moves.Add(new Move(this, b));
-                    Move(b, x - 1, y, moves);
+                    moves.Add(new Move(parentMove, b));
+                    Move(b, x - 1, y, parentMove, moves);
                 }
 
                 // Down
@@ -479,8 +565,8 @@ namespace Boardgame.Lib
                     var b = board.Copy();
                     b[x, y] = Square.TrailToken();
                     b[x, y + 1] = board[x, y].Move();
-                    moves.Add(new Move(this, b));
-                    Move(b, x, y + 1, moves);
+                    moves.Add(new Move(parentMove, b));
+                    Move(b, x, y + 1, parentMove, moves);
                 }
 
                 // Right
@@ -489,100 +575,25 @@ namespace Boardgame.Lib
                     var b = board.Copy();
                     b[x, y] = Square.TrailToken();
                     b[x + 1, y] = board[x, y].Move();
-                    moves.Add(new Move(this, b));
-                    Move(b, x + 1, y, moves);
+                    moves.Add(new Move(parentMove, b));
+                    Move(b, x + 1, y, parentMove, moves);
                 }
 
             }
         }
-
-        public Board Board { get; }
-
-        public int Depth { get; }
-
-        public Turn ParentTurn { get; }
-        public int Points { get; }
 
     }
 
     public class Move
     {
-        public Move(Turn turn, Board board)
+        public Move(Move parentMove, Board board)
         {
-            Turn = turn;
             Board = board;
+            ParentMove = parentMove;
         }
 
-        public void CheckForMatches()
-        {
-
-            // Find all tokens that can disappear
-            var newMatch = true;
-
-            while (newMatch)
-            {
-                newMatch = false;
-                for (byte x = 0; x < 6; x++)
-                {
-                    for (byte y = 0; y < 6; y++)
-                    {
-                        var curSquare = Board[x, y];
-                        if (!curSquare.IsEmpty && !curSquare.IsMatched)
-                        {
-                            // Up, Left, Right, Down
-
-                            // Up
-                            if (y > 0 && (Board[x, y - 1].IsTrail || Board[x, y - 1].IsMatched) && Board[x, y - 1].Number == curSquare.Number)
-                            {
-                                Board[x, y] = Square.MatchToken(curSquare);
-                                newMatch = true;
-                            }
-
-                            // Left
-                            if (x > 0 && (Board[x - 1, y].IsTrail || Board[x - 1, y].IsMatched) && Board[x - 1, y].Number == curSquare.Number)
-                            {
-                                Board[x, y] = Square.MatchToken(curSquare);
-                                newMatch = true;
-                            }
-
-                            // Down
-                            if (y < 5 && (Board[x, y + 1].IsTrail || Board[x, y + 1].IsMatched) && Board[x, y + 1].Number == curSquare.Number)
-                            {
-                                Board[x, y] = Square.MatchToken(curSquare);
-                                newMatch = true;
-                            }
-
-                            // Right
-                            if (x < 5 && (Board[x + 1, y].IsTrail || Board[x + 1, y].IsMatched) && Board[x + 1, y].Number == curSquare.Number)
-                            {
-                                Board[x, y] = Square.MatchToken(curSquare);
-                                newMatch = true;
-                            }
-
-                        }
-                    }
-                }
-            }
-
-        }
-
-        public Turn Turn { get; }
         public Board Board { get; }
-
-        public bool HasMatch
-        {
-            get
-            {
-                foreach (var s in Board.Squares)
-                {
-                    if (s.IsMatched)
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            }
-        }
+        public Move ParentMove { get; }
 
     }
 

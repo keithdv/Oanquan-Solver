@@ -1,0 +1,55 @@
+﻿<Window x:Class="BoardgamSolver.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BoardgamSolver"
+        mc:Ignorable="d"
+        Title="MainWindow" SizeToContent="WidthAndHeight">
+
+    <Grid x:Name="BoardGrid">
+        <Grid.Resources>
+            <local:TokenConverter x:Key="tokenConverter"></local:TokenConverter>
+            <Style TargetType="TextBlock">
+                <Setter Property="VerticalAlignment" Value="Center"></Setter>
+                <Setter Property="HorizontalAlignment" Value="Center"></Setter>
+                <Setter Property="FontSize" Value="30"></Setter>
+                <Setter Property="Padding" Value="5"></Setter>
+            </Style>
+            <Style TargetType="Button">
+                <Setter Property="Padding" Value="5"></Setter>
+                <Setter Property="Margin" Value="5"></Setter>
+            </Style>
+
+            <Style TargetType="local:BoardControl">
+                <Setter Property="Margin" Value="20"></Setter>
+            </Style>
+        </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="auto"></RowDefinition>
+            <RowDefinition Height="auto"></RowDefinition>
+            <RowDefinition Height="auto"></RowDefinition>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="auto"></ColumnDefinition>
+            <ColumnDefinition Width="auto"></ColumnDefinition>
+            <ColumnDefinition Width="auto"></ColumnDefinition>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="10"  Orientation="Horizontal">
+            <Button Click="Button_Click" IsEnabled="{Binding Path=ScreenEnabled}">Get Image</Button>
+            <Button x:Name="IPhoneScreen" Click="IPhoneScreen_Click" IsEnabled="{Binding Path=ScreenEnabled}">Refind IPhone Screen</Button>
+            <Button x:Name="Move" Click="Move_Click" IsEnabled="{Binding Path=ScreenEnabled}">Move</Button>
+            <Button x:Name="ContMove" Click="ContMove_Click" IsEnabled="{Binding Path=ScreenEnabled}">Continuous Move</Button>
+            <Button x:Name="Stop" Click="Stop_Click">Stop</Button>
+        </StackPanel>
+        <StackPanel Grid.Row="1" Orientation="Horizontal">
+            <TextBlock Text="{Binding Path='NextNumbers[0]'}"></TextBlock>
+            <TextBlock Text="{Binding Path='NextNumbers[1]'}"></TextBlock>
+            <TextBlock Text="{Binding Path='NextNumbers[2]'}"></TextBlock>
+        </StackPanel>
+        <local:BoardControl Grid.Row="2" DataContext="{Binding CurrentBoard}"></local:BoardControl>
+        <local:BoardControl Grid.Row="2" Grid.Column="1" DataContext="{Binding MoveOneBoard}"></local:BoardControl>
+        <local:BoardControl Grid.Row="2" Grid.Column="2" DataContext="{Binding MoveTwoBoard}"></local:BoardControl>
+
+    </Grid>
+</Window>

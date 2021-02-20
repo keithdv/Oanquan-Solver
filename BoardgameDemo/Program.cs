@@ -13,6 +13,7 @@ namespace BoardgameDemo
         static void Main(string[] args)
         {
 
+
             var display = new List<string>();
 
             while (true)
@@ -63,8 +64,6 @@ namespace BoardgameDemo
 
                 //WriteBoard(new List<Board>() { board });
 
-
-
                 Turn turn = new Turn(null, board);
 
                 var p = 0;
@@ -92,37 +91,7 @@ namespace BoardgameDemo
                         foreach (var nm in (new Turn(turn, b).Moves())) { futureMoves.Add((m, nm)); }
                     });
 
-                    // Hit 60k
-                    //          var bestMoves = futureMoves.OrderBy(m => m.Item2.Board.Count)
-                    //.ThenBy(m => m.Item2.Board.Count)
 
-                    //var stillBestMove = futureMoves.OrderBy(m => m.Item2.Board.WeightedCount).ThenBy(m => m.Item2.Board.Sum).ThenBy(m => m.Item2.Board.CenterSum).FirstOrDefault().Item1;
-
-                    //var simpleBestMove = futureMoves.OrderBy(m => m.Item2.Board.Count).OrderBy(m => m.Item1.Board.Count).FirstOrDefault().Item1;
-
-                    //var bestMoves = futureMoves.OrderBy(m=>m.Item2.Board.Count)
-                    //                    .ThenBy(m => m.Item2.Board.WeightedSum)
-                    //                    .ThenBy(m => m.Item2.Board.Count)
-                    //                    .FirstOrDefault();
-
-                    //var bestMoves = futureMoves.OrderBy(m => m.Item2.Board.Count)
-                    //                            .ThenBy(m => m.Item2.Board.Sum)
-                    //                            .ThenBy(m => m.Item2.Board.CenterCount).FirstOrDefault();
-
-                    //var bestMoves = futureMoves.OrderBy(m => m.Item2.Board.NineCount)
-                    //    .ThenBy(m => m.Item2.Board.Count)
-                    //    .ThenBy(m => m.Item2.Board.CenterCount)
-                    //    .ThenBy(m => m.Item1.Board.Count)
-                    //    .ThenBy(m => m.Item2.Board.Sum)
-                    //    .FirstOrDefault();
-
-                    //var bestMoves = futureMoves.OrderBy(m => m.Item2.Board.Count)
-                    //        //.ThenBy(m => m.Item2.Board.NineCount)
-                    //        .ThenBy(m => m.Item1.Board.Count)
-                    //        //.ThenBy(m=>m.Item2.Board.cente)
-                    //        .ThenBy(m => m.Item2.Board.Sum)
-                    //        .ThenBy(m => m.Item1.Board.Sum)
-                    //        .FirstOrDefault();
 
                     // BEST!!!
                     var bestMoves = futureMoves
@@ -133,13 +102,6 @@ namespace BoardgameDemo
                             .ThenBy(m => m.Item1.Board.WeightedSum)
                             .ThenBy(m => m.Item1.Board.CenterSum)
                             .FirstOrDefault();
-
-                    //.OrderBy(m => m.Item2.Board.Count)
-                    //    //.ThenBy(m => m.Item1.Board.Count)
-                    //    //.ThenBy(m=>m.Item2.Board.cente)
-                    //    .ThenBy(m => m.Item2.Board.Sum)
-                    //    //.ThenBy(m => m.Item1.Board.CenterSum)
-                    //    .FirstOrDefault();
 
                     var bestMove = bestMoves.Item1;
 
